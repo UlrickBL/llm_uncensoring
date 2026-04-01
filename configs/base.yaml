@@ -1,0 +1,21 @@
+model:
+  name: "Qwen/Qwen2.5-2B-Instruct"   # Qwen2.5-2B-Instruct; adjust to Qwen/Qwen3-2B when available
+  dtype: "bfloat16"                   # float16 or bfloat16
+  device: "cuda"
+  attn_implementation: "flash_attention_2"  # or "eager" if no FA2
+
+dataset:
+  name: "onepaneai/gpt-harmful-prompts-after-guardrails-evaluation"
+  split: "train"
+  text_column: "prompt"               # column name for the prompt
+  max_samples: null                   # null = use all
+
+generation:
+  max_new_tokens: 256
+  do_sample: true
+  temperature: 0.7
+  top_p: 0.9
+
+output:
+  dir: "./outputs"
+  save_results: true

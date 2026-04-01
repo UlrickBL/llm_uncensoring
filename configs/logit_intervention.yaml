@@ -1,0 +1,45 @@
+defaults:
+  - base
+
+experiment:
+  name: "logit_intervention"
+
+intervention:
+  # "suppress": force refusal token logits to -inf
+  # "penalty": subtract a large scalar from refusal token logits
+  # "adaptive": only activate after the first token is a refusal token
+  mode: "suppress"
+  penalty_value: 100.0
+
+refusal_tokens:
+  # Strategy to build the refusal token set:
+  # "hardcoded"  – use the phrases list below
+  # "contrastive" – generate N pairs (normal vs refused) and pick tokens that
+  #                 appear significantly more in refused outputs
+  strategy: "hardcoded"
+  phrases:
+    - "I cannot"
+    - "I can't"
+    - "I'm sorry"
+    - "Sorry"
+    - "I apologize"
+    - "I'm unable"
+    - "I'm not able"
+    - "As an AI"
+    - "Unfortunately"
+    - "I must decline"
+    - "I am not"
+    - "I won't"
+  # For "contrastive" strategy
+  contrastive_n_samples: 100
+  contrastive_top_k: 50        # Keep top-k most discriminative tokens
+
+evaluation:
+  n_prompts: 50
+  # Whether to also generate a baseline (no intervention) for comparison
+  generate_baseline: true
+  # Judge to evaluate if the intervention produced an answer
+  judge_mode: "heuristic"      # "heuristic" | "llm"
+
+output:
+  dir: "./outputs/logit_intervention"

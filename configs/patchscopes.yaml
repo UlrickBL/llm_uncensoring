@@ -1,0 +1,44 @@
+defaults:
+  - base
+
+experiment:
+  name: "patchscopes_layer_probe"
+
+probe:
+  # Layers to probe; null = all layers
+  layer_indices: null
+  # Token position to read from: "last" or an integer index
+  target_position: "last"
+  # Number of top-k tokens to decode per layer
+  top_k: 20
+  # Whether to apply the model's final LayerNorm before the LM head
+  apply_final_norm: true
+
+refusal:
+  # Strategy: "vocab_list" | "computed" (from a reference refused set)
+  strategy: "vocab_list"
+  # Used when strategy = "vocab_list"
+  phrases:
+    - "I cannot"
+    - "I can't"
+    - "I'm sorry"
+    - "Sorry"
+    - "I apologize"
+    - "I'm unable"
+    - "I'm not able"
+    - "As an AI"
+    - "Unfortunately"
+    - "I must decline"
+  # When strategy = "computed": sample this many refused completions to build the set
+  reference_n_samples: 50
+
+analysis:
+  # Number of prompts to run
+  n_prompts: 20
+  batch_size: 1
+  # Save per-layer logit distributions (large files)
+  save_full_logits: false
+
+output:
+  dir: "./outputs/patchscopes"
+  plot_format: "png"   # png | pdf | svg
