@@ -9,7 +9,10 @@ curve and a heatmap across prompts.
 Usage:
     python scripts/run_patchscopes.py
     python scripts/run_patchscopes.py --config configs/patchscopes.yaml
-    python scripts/run_patchscopes.py --n_prompts 5 --model Qwen/Qwen2.5-2B-Instruct
+    python scripts/run_patchscopes.py --n_prompts 5 --model Qwen/Qwen3-4B
+    python scripts/run_patchscopes.py --model-config configs/models/ministral.yaml
+    python scripts/run_patchscopes.py --scorer cosine
+    python scripts/run_patchscopes.py --scorer reranker
 """
 
 import argparse
@@ -25,41 +28,55 @@ import yaml
 
 from llm_uncensoring.data.dataset import load_harmful_prompts, build_chat_prompt
 from llm_uncensoring.models.loader import load_model_and_tokenizer
-from llm_uncensoring.experiments.patchscopes import run_patchscopes
+from llm_uncensoring.experiments.patchscopes import run_patchscopes, build_scorer_from_config
 from llm_uncensoring.utils.metrics import compute_patchscopes_stats
 from llm_uncensoring.utils.visualization import plot_refusal_scores_by_layer, plot_refusal_heatmap
 
 
 def parse_args():
     p = argparse.ArgumentParser(description="Patchscopes layer probe experiment")
-    p.add_argument("--config",     default="configs/patchscopes.yaml")
-    p.add_argument("--model",      default=None, help="Override model name")
-    p.add_argument("--n_prompts",  type=int, default=None, help="Override number of prompts")
-    p.add_argument("--output_dir", default=None)
-    p.add_argument("--no_plot",    action="store_true")
+    p.add_argument("--config",        default="configs/patchscopes.yaml")
+    p.add_argument("--model-config",  default=None,
+                   help="Path to a model preset yaml (e.g. configs/models/ministral.yaml)")
+    p.add_argument("--model",         default=None, help="Override model name directly")
+    p.add_argument("--scorer",        default=None,
+                   choices=["vocab_list", "cosine", "reranker"],
+                   help="Override refusal scorer strategy")
+    p.add_argument("--n_prompts",     type=int, default=None)
+    p.add_argument("--output_dir",    default=None)
+    p.add_argument("--no_plot",       action="store_true")
     return p.parse_args()
 
 
-def load_config(path: str) -> dict:
-    with open(path) as f:
-        cfg = yaml.safe_load(f)
-    # Flatten defaults hierarchy if present
+def load_config(path: str, model_config_path: str = None) -> dict:
     base_path = Path(path).parent / "base.yaml"
+    cfg: dict = {}
     if base_path.exists():
         with open(base_path) as f:
-            base = yaml.safe_load(f)
-        base.update(cfg)
-        cfg = base
+            cfg = yaml.safe_load(f) or {}
+    with open(path) as f:
+        cfg.update(yaml.safe_load(f) or {})
+    # Overlay model-specific config (e.g. configs/models/ministral.yaml)
+    if model_config_path:
+        with open(model_config_path) as f:
+            model_cfg = yaml.safe_load(f) or {}
+        for key, val in model_cfg.items():
+            if isinstance(val, dict) and key in cfg:
+                cfg[key].update(val)
+            else:
+                cfg[key] = val
     return cfg
 
 
 def main():
     args = parse_args()
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, model_config_path=args.model_config)
 
     # CLI overrides
     if args.model:
         cfg["model"]["name"] = args.model
+    if args.scorer:
+        cfg["refusal"]["strategy"] = args.scorer
     if args.n_prompts:
         cfg["analysis"]["n_prompts"] = args.n_prompts
     if args.output_dir:
@@ -88,12 +105,16 @@ def main():
     raw_prompts = dataset.prompts
 
     print(f"[3/4] Running Patchscopes probe on {len(prompts)} prompts...")
+    print(f"      Refusal scorer strategy: {cfg['refusal']['strategy']!r}")
+    scorer = build_scorer_from_config(cfg["refusal"], tokenizer=tokenizer)
+
     layer_indices = cfg["probe"].get("layer_indices", None)
     results = run_patchscopes(
         model=model,
         tokenizer=tokenizer,
         prompts=prompts,
-        refusal_phrases=cfg["refusal"]["phrases"],
+        questions=raw_prompts,
+        scorer=scorer,
         layer_indices=layer_indices,
         top_k=cfg["probe"]["top_k"],
         apply_final_norm=cfg["probe"]["apply_final_norm"],

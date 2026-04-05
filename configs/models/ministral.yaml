@@ -1,0 +1,18 @@
+# Ministral model presets
+# Usage: python scripts/run_patchscopes.py --model-config configs/models/ministral.yaml
+#
+# Ministral model IDs:
+#   mistralai/Ministral-3B-instruct-2410   – 3B, efficient, ~7 GB in bf16
+#   mistralai/Ministral-8B-Instruct-2410   – 8B, higher quality, ~16 GB in bf16
+#
+# Ministral uses the Mistral v3 tokenizer and [INST] chat template.
+# The loader in models/loader.py is compatible (looks for .model.layers).
+
+model:
+  name: "mistralai/Ministral-8B-Instruct-2410"
+  dtype: "bfloat16"
+  device: "cuda"
+  attn_implementation: "flash_attention_2"
+
+# If you want the 3B variant, override via --model:
+#   python scripts/run_patchscopes.py --model mistralai/Ministral-3B-instruct-2410

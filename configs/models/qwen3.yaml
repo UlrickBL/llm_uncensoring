@@ -1,0 +1,21 @@
+# Qwen3 model presets
+# Usage: python scripts/run_patchscopes.py --model-config configs/models/qwen3.yaml
+#
+# Qwen3 model IDs (pick one in base.yaml or via --model):
+#   Qwen/Qwen3-0.6B          – tiny, fast experimentation
+#   Qwen/Qwen3-1.7B          – small, good for ablations
+#   Qwen/Qwen3-4B            – recommended starting point
+#   Qwen/Qwen3-8B            – higher quality, needs ~18 GB VRAM in bf16
+#   Qwen/Qwen3-0.6B-Instruct / Qwen/Qwen3-1.7B-Instruct / etc. – instruction-tuned variants
+#
+# Note: "Qwen3.5" is not a public model family as of writing.
+# If Anthropic/Qwen releases it, update the name below accordingly.
+
+model:
+  name: "Qwen/Qwen3-4B"
+  dtype: "bfloat16"
+  device: "cuda"
+  attn_implementation: "flash_attention_2"
+
+# Qwen3 chat template uses <|im_start|> / <|im_end|> tokens,
+# identical to Qwen2.5 — no changes needed in dataset.py.
