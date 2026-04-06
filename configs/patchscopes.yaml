@@ -5,10 +5,11 @@ experiment:
   name: "patchscopes_layer_probe"
 
 probe:
-  layer_indices: null       # null = all layers
+  layer_indices: null             # null = all layers
   target_position: "last"
-  top_k: 20                 # top-k tokens decoded from each layer distribution
+  top_k: 20                       # top-k tokens decoded from each layer distribution
   apply_final_norm: true
+  max_continuation_tokens: 50     # generate up to N tokens from each layer's predicted first token
 
 # ─── Refusal scoring ──────────────────────────────────────────────────────────
 #

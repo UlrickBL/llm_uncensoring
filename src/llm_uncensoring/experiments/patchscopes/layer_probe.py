@@ -51,6 +51,7 @@ class LayerResult:
     top_probs: List[float]
     refusal_score: float    # scorer-dependent value in [0, 1]
     entropy: float          # entropy of the full decoded distribution (nats)
+    continuation: str = ""  # up to max_continuation_tokens decoded from this layer
 
 
 @dataclass
@@ -98,11 +99,13 @@ class LayerProbe:
         layer_indices: Optional[List[int]] = None,
         top_k: int = 20,
         apply_final_norm: bool = True,
+        max_continuation_tokens: int = 50,
     ):
         self.model = model
         self.tokenizer = tokenizer
         self.top_k = top_k
         self.apply_final_norm = apply_final_norm
+        self.max_continuation_tokens = max_continuation_tokens
 
         self._layers = get_transformer_layers(model)
         self._norm   = get_final_norm(model) if apply_final_norm else None
@@ -147,7 +150,16 @@ class LayerProbe:
             top_tokens = [self.tokenizer.decode([tid.item()]) for tid in top_ids]
             top_probs_list = top_probs.tolist()
 
-            refusal_score = self.scorer.score(top_tokens, top_probs_list, question)
+            # Generate a continuation seeded by this layer's argmax first token,
+            # then let the full model continue greedily from there.
+            first_token_id = top_ids[0].unsqueeze(0).unsqueeze(0)  # [1, 1]
+            continuation = self._generate_continuation(input_ids, first_token_id)
+
+            refusal_score = self.scorer.score(
+                top_tokens, top_probs_list,
+                question=question,
+                continuation=continuation,
+            )
             entropy = self._entropy(probs)
 
             layer_results.append(
@@ -157,6 +169,7 @@ class LayerProbe:
                     top_probs=top_probs_list,
                     refusal_score=refusal_score,
                     entropy=entropy,
+                    continuation=continuation,
                 )
             )
 
@@ -186,6 +199,34 @@ class LayerProbe:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    def _generate_continuation(
+        self,
+        prompt_ids: torch.Tensor,   # [1, prompt_len]
+        first_token: torch.Tensor,  # [1, 1]  — argmax of this layer's logit distribution
+    ) -> str:
+        """
+        Seed generation with `first_token` (the layer's predicted next token),
+        then let the full model generate up to `max_continuation_tokens` tokens
+        greedily, stopping at the EOS token.
+
+        Returns the decoded string including the seeded first token.
+        """
+        # Context = original prompt + the layer's predicted first token
+        seeded_ids = torch.cat([prompt_ids, first_token], dim=-1)  # [1, prompt_len+1]
+
+        with torch.no_grad():
+            out = self.model.generate(
+                seeded_ids,
+                max_new_tokens=self.max_continuation_tokens - 1,  # -1 for seeded token
+                do_sample=False,           # greedy — deterministic, fastest
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+            )
+
+        # Decode only the newly generated tokens (after the original prompt)
+        new_ids = out[0][prompt_ids.shape[-1]:]
+        return self.tokenizer.decode(new_ids, skip_special_tokens=True)
 
     @contextmanager
     def _capture_hidden_states(self, layer_indices: List[int]):
@@ -302,11 +343,13 @@ def run_patchscopes(
     layer_indices: Optional[List[int]] = None,
     top_k: int = 20,
     apply_final_norm: bool = True,
+    max_continuation_tokens: int = 50,
 ) -> List[LayerProbeResult]:
     probe = LayerProbe(
         model=model,
         tokenizer=tokenizer,
         scorer=scorer,
+        max_continuation_tokens=max_continuation_tokens,
         refusal_phrases=refusal_phrases,
         layer_indices=layer_indices,
         top_k=top_k,

@@ -118,6 +118,7 @@ def main():
         layer_indices=layer_indices,
         top_k=cfg["probe"]["top_k"],
         apply_final_norm=cfg["probe"]["apply_final_norm"],
+        max_continuation_tokens=cfg["probe"].get("max_continuation_tokens", 50),
     )
 
     print(f"[4/4] Computing stats and saving results...")
@@ -136,6 +137,7 @@ def main():
                     "entropy": lr.entropy,
                     "top_tokens": lr.top_tokens[:5],
                     "top_probs": lr.top_probs[:5],
+                    "continuation": lr.continuation,
                 }
                 for lr in res.layer_results
             ],
