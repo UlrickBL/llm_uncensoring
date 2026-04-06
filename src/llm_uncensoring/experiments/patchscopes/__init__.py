@@ -2,6 +2,9 @@ from .layer_probe import LayerProbe, LayerProbeResult, run_patchscopes, build_sc
 from .refusal_scorer import (
     RefusalScorerBase,
     VocabRefusalScorer,
+    RegexRefusalScorer,
+    NLIRefusalScorer,
+    HybridRefusalScorer,
     CosineRefusalScorer,
     RerankerRefusalScorer,
 )
@@ -13,6 +16,9 @@ __all__ = [
     "build_scorer_from_config",
     "RefusalScorerBase",
     "VocabRefusalScorer",
+    "RegexRefusalScorer",
+    "NLIRefusalScorer",
+    "HybridRefusalScorer",
     "CosineRefusalScorer",
     "RerankerRefusalScorer",
 ]

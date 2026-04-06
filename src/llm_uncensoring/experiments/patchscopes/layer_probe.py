@@ -35,6 +35,9 @@ from llm_uncensoring.models.loader import (
 from .refusal_scorer import (
     RefusalScorerBase,
     VocabRefusalScorer,
+    RegexRefusalScorer,
+    NLIRefusalScorer,
+    HybridRefusalScorer,
     CosineRefusalScorer,
     RerankerRefusalScorer,
 )
@@ -309,6 +312,25 @@ def build_scorer_from_config(cfg: dict, tokenizer=None) -> RefusalScorerBase:
             first_strings = [p.split()[0] for p in phrases]
         return VocabRefusalScorer(refusal_first_strings=first_strings)
 
+    if strategy == "regex":
+        return RegexRefusalScorer(
+            answer_penalty_weight=cfg.get("answer_penalty_weight", 0.3),
+        )
+
+    if strategy == "nli":
+        return NLIRefusalScorer(
+            model_name=cfg.get("nli_model", "cross-encoder/nli-deberta-v3-small"),
+            dual_hypothesis=cfg.get("nli_dual_hypothesis", True),
+        )
+
+    if strategy == "hybrid":
+        return HybridRefusalScorer(
+            nli_model_name=cfg.get("nli_model", "cross-encoder/nli-deberta-v3-small"),
+            high_threshold=cfg.get("hybrid_high_threshold", 0.25),
+            low_threshold=cfg.get("hybrid_low_threshold", 0.05),
+            alpha=cfg.get("hybrid_alpha", 0.4),
+        )
+
     if strategy in ("cosine", "embedding"):
         return CosineRefusalScorer(
             model_name=cfg.get("embedding_model", "BAAI/bge-small-en-v1.5"),
@@ -322,11 +344,14 @@ def build_scorer_from_config(cfg: dict, tokenizer=None) -> RefusalScorerBase:
                 "reranker_model", "cross-encoder/ms-marco-MiniLM-L-6-v2"
             ),
             refusal_prototype=cfg.get("reranker_refusal_prototype"),
-            mode=cfg.get("reranker_mode", "refusal"),
+            mode=cfg.get("reranker_mode", "dual"),
             top_k_for_scoring=cfg.get("top_k_for_scoring", 5),
         )
 
-    raise ValueError(f"Unknown refusal scorer strategy: {strategy!r}")
+    raise ValueError(
+        f"Unknown refusal scorer strategy: {strategy!r}. "
+        f"Valid: vocab_list, regex, nli, hybrid, cosine, reranker"
+    )
 
 
 # ---------------------------------------------------------------------------
