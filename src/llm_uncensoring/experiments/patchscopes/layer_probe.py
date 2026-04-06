@@ -195,7 +195,7 @@ class LayerProbe:
         def make_hook(idx: int):
             def hook(module, inp, output):
                 h = output[0] if isinstance(output, tuple) else output
-                hidden_states[idx] = h.detach().float()
+                hidden_states[idx] = h.detach()
             return hook
 
         for idx in layer_indices:
@@ -209,10 +209,13 @@ class LayerProbe:
 
     def _decode_hidden(self, h: torch.Tensor) -> torch.Tensor:
         """Apply (optional norm +) LM head to a [1, 1, hidden] tensor → [vocab]."""
+        # Cast to the LM head's weight dtype (bfloat16/float16) before forward pass
+        target_dtype = next(self._lm_head.parameters()).dtype
+        h = h.to(target_dtype)
         if self._norm is not None:
             h = self._norm(h)
         logits = self._lm_head(h)
-        return logits[0, 0]
+        return logits[0, 0].float()   # return float32 for stable softmax / entropy
 
     @staticmethod
     def _entropy(probs: torch.Tensor) -> float:
