@@ -32,10 +32,15 @@ refusal:
   hybrid_alpha: 0.4            # weight on regex in the blend (0 = pure NLI)
 
   # ── nli / hybrid ────────────────────────────────────────────────────────
-  # cross-encoder/nli-deberta-v3-small  (~80 MB, fast)
-  # cross-encoder/nli-deberta-v3-base   (better, ~180 MB)
+  # English NLI model:
+  #   cross-encoder/nli-deberta-v3-small  (~80 MB, fast)
+  #   cross-encoder/nli-deberta-v3-base   (better, ~180 MB)
   nli_model: "cross-encoder/nli-deberta-v3-small"
   nli_dual_hypothesis: true    # also score "assistant provides a direct answer"
+  # Multilingual NLI model (auto-used for Chinese/Japanese/Arabic/etc continuations):
+  #   joeddav/xlm-roberta-large-xnli     (~1.1 GB, covers 15 languages)
+  multilingual_model: "joeddav/xlm-roberta-large-xnli"
+  load_multilingual: true      # set false to skip loading if you only have English data
 
   # ── regex ────────────────────────────────────────────────────────────────
   answer_penalty_weight: 0.3   # how much answering signals reduce the refusal score

@@ -19,11 +19,10 @@ from __future__ import annotations
 
 import gc
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import torch
-import torch.nn as nn
 from tqdm.auto import tqdm
 from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
@@ -237,7 +236,7 @@ class LayerProbe:
         hooks = []
 
         def make_hook(idx: int):
-            def hook(module, inp, output):
+            def hook(_module, _inp, output):
                 h = output[0] if isinstance(output, tuple) else output
                 hidden_states[idx] = h.detach()
             return hook
@@ -320,15 +319,23 @@ def build_scorer_from_config(cfg: dict, tokenizer=None) -> RefusalScorerBase:
     if strategy == "nli":
         return NLIRefusalScorer(
             model_name=cfg.get("nli_model", "cross-encoder/nli-deberta-v3-small"),
+            multilingual_model_name=cfg.get(
+                "multilingual_model", "joeddav/xlm-roberta-large-xnli"
+            ),
             dual_hypothesis=cfg.get("nli_dual_hypothesis", True),
+            load_multilingual=cfg.get("load_multilingual", True),
         )
 
     if strategy == "hybrid":
         return HybridRefusalScorer(
             nli_model_name=cfg.get("nli_model", "cross-encoder/nli-deberta-v3-small"),
+            multilingual_model_name=cfg.get(
+                "multilingual_model", "joeddav/xlm-roberta-large-xnli"
+            ),
             high_threshold=cfg.get("hybrid_high_threshold", 0.25),
             low_threshold=cfg.get("hybrid_low_threshold", 0.05),
             alpha=cfg.get("hybrid_alpha", 0.4),
+            load_multilingual=cfg.get("load_multilingual", True),
         )
 
     if strategy in ("cosine", "embedding"):
